@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Search, AlertTriangle, CheckCircle, XCircle, ArrowLeft } from "lucide-react"
+import { Search, AlertTriangle, CheckCircle, XCircle, ArrowLeft, Info, Lightbulb, Calculator } from "lucide-react"
 import { analyzeIngredients } from "../actions/analyze-ingredients"
 import Link from "next/link"
 
@@ -16,6 +16,17 @@ interface AnalysisResult {
   ingredient: string
   riskLevel: "Low" | "Medium" | "High"
   explanation: string
+  healthImpacts: string[]
+  alternatives?: string
+}
+
+interface AnalysisData {
+  ingredients: AnalysisResult[]
+  overallScore: number
+  summary: string
+  productType?: string
+  commonAdditives?: string[]
+  scoringReasoning?: string
 }
 
 export default function AnalyzePage() {
@@ -23,6 +34,10 @@ export default function AnalyzePage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [results, setResults] = useState<AnalysisResult[]>([])
   const [overallScore, setOverallScore] = useState<number | null>(null)
+  const [summary, setSummary] = useState<string>("")
+  const [productType, setProductType] = useState<string>("")
+  const [commonAdditives, setCommonAdditives] = useState<string[]>([])
+  const [scoringReasoning, setScoringReasoning] = useState<string>("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,16 +51,28 @@ export default function AnalyzePage() {
       if (result.success && result.data) {
         setResults(result.data.ingredients)
         setOverallScore(result.data.overallScore)
+        setSummary(result.data.summary)
+        setProductType(result.data.productType || "")
+        setCommonAdditives(result.data.commonAdditives || [])
+        setScoringReasoning(result.data.scoringReasoning || "")
       } else {
         // Handle error case
         console.error("Analysis failed:", result.error)
         setResults([])
         setOverallScore(null)
+        setSummary("")
+        setProductType("")
+        setCommonAdditives([])
+        setScoringReasoning("")
       }
     } catch (error) {
       console.error("Error during analysis:", error)
       setResults([])
       setOverallScore(null)
+      setSummary("")
+      setProductType("")
+      setCommonAdditives([])
+      setScoringReasoning("")
     } finally {
       setIsAnalyzing(false)
     }
@@ -78,14 +105,24 @@ export default function AnalyzePage() {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600"
-    if (score >= 60) return "text-yellow-600"
+    if (score >= 85) return "text-green-600"
+    if (score >= 70) return "text-green-500"
+    if (score >= 50) return "text-yellow-600"
+    if (score >= 30) return "text-orange-600"
     return "text-red-600"
+  }
+
+  const getScoreDescription = (score: number) => {
+    if (score >= 85) return "Excellent - Very healthy choice"
+    if (score >= 70) return "Good - Generally safe with minor concerns"
+    if (score >= 50) return "Fair - Moderate concerns, consume in moderation"
+    if (score >= 30) return "Poor - Multiple health concerns, limit consumption"
+    return "Very Poor - Significant health risks, avoid if possible"
   }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         {/* Header with Back Button */}
         <div className="flex items-center gap-4">
           <Link href="/">
@@ -99,7 +136,13 @@ export default function AnalyzePage() {
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-gray-900">Food Ingredient Analysis</h1>
-          <p className="text-gray-600">Enter ingredients or product information to analyze potential health risks</p>
+          <p className="text-gray-600">
+            Enter product names, brands, or ingredient lists for comprehensive health analysis
+          </p>
+          <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded-lg">
+            <strong>Data Sources:</strong> FDA GRAS database, EFSA assessments, WHO/FAO evaluations, peer-reviewed food
+            safety research
+          </div>
         </div>
 
         {/* Input Section */}
@@ -108,7 +151,7 @@ export default function AnalyzePage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Enter ingredients list or product name..."
+                  placeholder="e.g., 'Ülker Gofret', 'Coca Cola', 'Apple', or full ingredient list..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   className="flex-1"
@@ -134,6 +177,44 @@ export default function AnalyzePage() {
         {/* Results Section */}
         {results.length > 0 && (
           <div className="space-y-6">
+            {/* Product Type & Summary */}
+            {(productType || summary) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5" />
+                    Analysis Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {productType && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-1">Product Type:</h4>
+                      <p className="text-gray-700">{productType}</p>
+                    </div>
+                  )}
+                  {summary && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-1">Overall Assessment:</h4>
+                      <p className="text-gray-700">{summary}</p>
+                    </div>
+                  )}
+                  {commonAdditives.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Common Additives Found:</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {commonAdditives.map((additive, index) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {additive}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             {/* Overall Score */}
             {overallScore !== null && (
               <Card>
@@ -147,7 +228,10 @@ export default function AnalyzePage() {
                         <span className="text-sm font-medium">Safety Rating</span>
                         <span className={`text-2xl font-bold ${getScoreColor(overallScore)}`}>{overallScore}/100</span>
                       </div>
-                      <Progress value={overallScore} className="h-3" />
+                      <Progress value={overallScore} className="h-3 mb-2" />
+                      <p className={`text-sm font-medium ${getScoreColor(overallScore)}`}>
+                        {getScoreDescription(overallScore)}
+                      </p>
                     </div>
                     <div className="relative h-20 w-20">
                       <svg className="h-20 w-20 transform -rotate-90" viewBox="0 0 36 36">
@@ -160,7 +244,17 @@ export default function AnalyzePage() {
                         <path
                           d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                           fill="none"
-                          stroke={overallScore >= 80 ? "#10b981" : overallScore >= 60 ? "#f59e0b" : "#ef4444"}
+                          stroke={
+                            overallScore >= 85
+                              ? "#10b981"
+                              : overallScore >= 70
+                                ? "#22c55e"
+                                : overallScore >= 50
+                                  ? "#f59e0b"
+                                  : overallScore >= 30
+                                    ? "#f97316"
+                                    : "#ef4444"
+                          }
                           strokeWidth="2"
                           strokeDasharray={`${overallScore}, 100`}
                         />
@@ -170,35 +264,67 @@ export default function AnalyzePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Scoring Reasoning */}
+                  {scoringReasoning && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-1 flex items-center gap-1">
+                        <Calculator className="h-4 w-4" />
+                        Scoring Reasoning:
+                      </h4>
+                      <p className="text-gray-700 text-sm">{scoringReasoning}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
-            {/* Results Table */}
+            {/* Detailed Results */}
             <Card>
               <CardHeader>
-                <CardTitle>Ingredient Analysis Results</CardTitle>
+                <CardTitle>Detailed Ingredient Analysis</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {/* Header Row */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-2 border-b font-semibold text-sm text-gray-600">
-                    <div>Ingredient</div>
-                    <div>Risk Level</div>
-                    <div className="md:col-span-2">Explanation</div>
-                  </div>
-
-                  {/* Data Rows */}
+                <div className="space-y-6">
                   {results.map((result, index) => (
-                    <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 py-3 border-b last:border-b-0">
-                      <div className="font-medium text-gray-900">{result.ingredient}</div>
-                      <div>
-                        <Badge variant={getRiskColor(result.riskLevel)} className="flex items-center gap-1 w-fit">
+                    <div key={index} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <h3 className="font-semibold text-lg text-gray-900">{result.ingredient}</h3>
+                        <Badge variant={getRiskColor(result.riskLevel)} className="flex items-center gap-1">
                           {getRiskIcon(result.riskLevel)}
-                          {result.riskLevel}
+                          {result.riskLevel} Risk
                         </Badge>
                       </div>
-                      <div className="md:col-span-2 text-gray-700 text-sm leading-relaxed">{result.explanation}</div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900 mb-1">Analysis:</h4>
+                          <p className="text-gray-700 text-sm leading-relaxed">{result.explanation}</p>
+                        </div>
+
+                        {result.healthImpacts && result.healthImpacts.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Health Impacts:</h4>
+                            <ul className="list-disc list-inside space-y-1">
+                              {result.healthImpacts.map((impact, impactIndex) => (
+                                <li key={impactIndex} className="text-gray-700 text-sm">
+                                  {impact}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {result.alternatives && (
+                          <div className="bg-green-50 p-3 rounded-md">
+                            <h4 className="font-medium text-green-900 mb-1 flex items-center gap-1">
+                              <Lightbulb className="h-4 w-4" />
+                              Healthier Alternatives:
+                            </h4>
+                            <p className="text-green-800 text-sm">{result.alternatives}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -214,10 +340,19 @@ export default function AnalyzePage() {
               <div className="text-gray-400 mb-4">
                 <Search className="h-12 w-12 mx-auto" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Analysis Yet</h3>
-              <p className="text-gray-600">
-                Enter ingredients or product information above to get started with the analysis.
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Ready for Deep Analysis</h3>
+              <p className="text-gray-600 mb-4">
+                Enter any product name, brand, or ingredient list for comprehensive health analysis.
               </p>
+              <div className="text-sm text-gray-500 space-y-1">
+                <p>
+                  <strong>Test Examples (with expected scores):</strong>
+                </p>
+                <p>• "Fresh Apple" → Should score 95-100</p>
+                <p>• "Ülker Gofret" → Should score 35-45</p>
+                <p>• "Coca Cola" → Should score 15-25</p>
+                <p>• "Whole grain bread" → Should score 75-85</p>
+              </div>
             </CardContent>
           </Card>
         )}
