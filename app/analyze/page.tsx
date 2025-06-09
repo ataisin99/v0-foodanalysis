@@ -439,14 +439,8 @@ export default function AnalyzePage() {
               <p className="text-gray-600 mb-4">
                 Enter any product name, brand, or ingredient list for comprehensive health analysis.
               </p>
-              <div className="text-sm text-gray-500 space-y-1">
-                <p>
-                  <strong>Test Examples (with expected scores):</strong>
-                </p>
-                <p>• "Fresh Apple" → Should score 95-100</p>
-                <p>• "Ülker Gofret" → Should score 35-45</p>
-                <p>• "Coca Cola" → Should score 15-25</p>
-                <p>• "Whole grain bread" → Should score 75-85</p>
+              <div className="text-sm text-gray-500">
+                Try analyzing any food product, brand name, or ingredient list.
               </div>
             </CardContent>
           </Card>
