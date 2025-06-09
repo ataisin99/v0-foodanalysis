@@ -8,7 +8,19 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Search, AlertTriangle, CheckCircle, XCircle, ArrowLeft, Info, Lightbulb, Calculator } from "lucide-react"
+import {
+  Search,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  ArrowLeft,
+  Info,
+  Lightbulb,
+  Calculator,
+  Droplets,
+  Palette,
+  FlaskConical,
+} from "lucide-react"
 import { analyzeIngredients } from "../actions/analyze-ingredients"
 import Link from "next/link"
 
@@ -18,6 +30,7 @@ interface AnalysisResult {
   explanation: string
   healthImpacts: string[]
   alternatives?: string
+  specificAdditives?: string[]
 }
 
 interface AnalysisData {
@@ -27,6 +40,9 @@ interface AnalysisData {
   productType?: string
   commonAdditives?: string[]
   scoringReasoning?: string
+  artificialColors?: string[]
+  artificialFlavors?: string[]
+  preservatives?: string[]
 }
 
 export default function AnalyzePage() {
@@ -38,6 +54,9 @@ export default function AnalyzePage() {
   const [productType, setProductType] = useState<string>("")
   const [commonAdditives, setCommonAdditives] = useState<string[]>([])
   const [scoringReasoning, setScoringReasoning] = useState<string>("")
+  const [artificialColors, setArtificialColors] = useState<string[]>([])
+  const [artificialFlavors, setArtificialFlavors] = useState<string[]>([])
+  const [preservatives, setPreservatives] = useState<string[]>([])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,6 +74,9 @@ export default function AnalyzePage() {
         setProductType(result.data.productType || "")
         setCommonAdditives(result.data.commonAdditives || [])
         setScoringReasoning(result.data.scoringReasoning || "")
+        setArtificialColors(result.data.artificialColors || [])
+        setArtificialFlavors(result.data.artificialFlavors || [])
+        setPreservatives(result.data.preservatives || [])
       } else {
         // Handle error case
         console.error("Analysis failed:", result.error)
@@ -64,6 +86,9 @@ export default function AnalyzePage() {
         setProductType("")
         setCommonAdditives([])
         setScoringReasoning("")
+        setArtificialColors([])
+        setArtificialFlavors([])
+        setPreservatives([])
       }
     } catch (error) {
       console.error("Error during analysis:", error)
@@ -73,6 +98,9 @@ export default function AnalyzePage() {
       setProductType("")
       setCommonAdditives([])
       setScoringReasoning("")
+      setArtificialColors([])
+      setArtificialFlavors([])
+      setPreservatives([])
     } finally {
       setIsAnalyzing(false)
     }
@@ -199,9 +227,62 @@ export default function AnalyzePage() {
                       <p className="text-gray-700">{summary}</p>
                     </div>
                   )}
-                  {commonAdditives.length > 0 && (
+
+                  {/* Artificial Colors Section */}
+                  {artificialColors && artificialColors.length > 0 && (
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Common Additives Found:</h4>
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <Palette className="h-4 w-4 text-red-500" />
+                        Artificial Colors:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {artificialColors.map((color, index) => (
+                          <Badge key={index} variant="outline" className="text-xs bg-red-50">
+                            {color}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Artificial Flavors Section */}
+                  {artificialFlavors && artificialFlavors.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <Droplets className="h-4 w-4 text-purple-500" />
+                        Artificial Flavors:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {artificialFlavors.map((flavor, index) => (
+                          <Badge key={index} variant="outline" className="text-xs bg-purple-50">
+                            {flavor}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Preservatives Section */}
+                  {preservatives && preservatives.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <FlaskConical className="h-4 w-4 text-amber-500" />
+                        Preservatives:
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {preservatives.map((preservative, index) => (
+                          <Badge key={index} variant="outline" className="text-xs bg-amber-50">
+                            {preservative}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Common Additives Section */}
+                  {commonAdditives && commonAdditives.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Other Additives:</h4>
                       <div className="flex flex-wrap gap-2">
                         {commonAdditives.map((additive, index) => (
                           <Badge key={index} variant="outline" className="text-xs">
@@ -301,6 +382,20 @@ export default function AnalyzePage() {
                           <h4 className="font-medium text-gray-900 mb-1">Analysis:</h4>
                           <p className="text-gray-700 text-sm leading-relaxed">{result.explanation}</p>
                         </div>
+
+                        {/* Specific Additives */}
+                        {result.specificAdditives && result.specificAdditives.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-gray-900 mb-2">Specific Additives:</h4>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {result.specificAdditives.map((additive, addIndex) => (
+                                <Badge key={addIndex} variant="outline" className="text-xs bg-blue-50">
+                                  {additive}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
                         {result.healthImpacts && result.healthImpacts.length > 0 && (
                           <div>
