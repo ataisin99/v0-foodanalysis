@@ -20,6 +20,8 @@ import {
   Droplets,
   Palette,
   FlaskConical,
+  Save,
+  BarChart3,
 } from "lucide-react"
 import { analyzeIngredients } from "../actions/analyze-ingredients"
 import Link from "next/link"
@@ -31,6 +33,15 @@ interface AnalysisResult {
   healthImpacts: string[]
   alternatives?: string
   specificAdditives?: string[]
+  estimatedAmount?: string
+  dailyIntakeImpact?: string
+}
+
+interface NutritionalConcern {
+  nutrient: string
+  amount: string
+  dailyValuePercentage?: number
+  concern: string
 }
 
 interface AnalysisData {
@@ -43,6 +54,16 @@ interface AnalysisData {
   artificialColors?: string[]
   artificialFlavors?: string[]
   preservatives?: string[]
+  nutritionalConcerns?: NutritionalConcern[]
+  servingSize?: string
+  estimatedCalories?: number
+}
+
+interface SavedProduct {
+  id: string
+  name: string
+  analysisData: AnalysisData
+  timestamp: number
 }
 
 export default function AnalyzePage() {
@@ -57,6 +78,10 @@ export default function AnalyzePage() {
   const [artificialColors, setArtificialColors] = useState<string[]>([])
   const [artificialFlavors, setArtificialFlavors] = useState<string[]>([])
   const [preservatives, setPreservatives] = useState<string[]>([])
+  const [nutritionalConcerns, setNutritionalConcerns] = useState<NutritionalConcern[]>([])
+  const [servingSize, setServingSize] = useState<string>("")
+  const [estimatedCalories, setEstimatedCalories] = useState<number | null>(null)
+  const [currentAnalysis, setCurrentAnalysis] = useState<AnalysisData | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,42 +93,64 @@ export default function AnalyzePage() {
       const result = await analyzeIngredients(inputText)
 
       if (result.success && result.data) {
-        setResults(result.data.ingredients)
-        setOverallScore(result.data.overallScore)
-        setSummary(result.data.summary)
-        setProductType(result.data.productType || "")
-        setCommonAdditives(result.data.commonAdditives || [])
-        setScoringReasoning(result.data.scoringReasoning || "")
-        setArtificialColors(result.data.artificialColors || [])
-        setArtificialFlavors(result.data.artificialFlavors || [])
-        setPreservatives(result.data.preservatives || [])
+        const data = result.data
+        setResults(data.ingredients)
+        setOverallScore(data.overallScore)
+        setSummary(data.summary)
+        setProductType(data.productType || "")
+        setCommonAdditives(data.commonAdditives || [])
+        setScoringReasoning(data.scoringReasoning || "")
+        setArtificialColors(data.artificialColors || [])
+        setArtificialFlavors(data.artificialFlavors || [])
+        setPreservatives(data.preservatives || [])
+        setNutritionalConcerns(data.nutritionalConcerns || [])
+        setServingSize(data.servingSize || "")
+        setEstimatedCalories(data.estimatedCalories || null)
+        setCurrentAnalysis(data)
       } else {
         // Handle error case
         console.error("Analysis failed:", result.error)
-        setResults([])
-        setOverallScore(null)
-        setSummary("")
-        setProductType("")
-        setCommonAdditives([])
-        setScoringReasoning("")
-        setArtificialColors([])
-        setArtificialFlavors([])
-        setPreservatives([])
+        resetState()
       }
     } catch (error) {
       console.error("Error during analysis:", error)
-      setResults([])
-      setOverallScore(null)
-      setSummary("")
-      setProductType("")
-      setCommonAdditives([])
-      setScoringReasoning("")
-      setArtificialColors([])
-      setArtificialFlavors([])
-      setPreservatives([])
+      resetState()
     } finally {
       setIsAnalyzing(false)
     }
+  }
+
+  const resetState = () => {
+    setResults([])
+    setOverallScore(null)
+    setSummary("")
+    setProductType("")
+    setCommonAdditives([])
+    setScoringReasoning("")
+    setArtificialColors([])
+    setArtificialFlavors([])
+    setPreservatives([])
+    setNutritionalConcerns([])
+    setServingSize("")
+    setEstimatedCalories(null)
+    setCurrentAnalysis(null)
+  }
+
+  const saveProduct = () => {
+    if (!currentAnalysis || !inputText.trim()) return
+
+    const savedProduct: SavedProduct = {
+      id: Date.now().toString(),
+      name: inputText.trim(),
+      analysisData: currentAnalysis,
+      timestamp: Date.now(),
+    }
+
+    const existingProducts = JSON.parse(localStorage.getItem("savedProducts") || "[]")
+    const updatedProducts = [savedProduct, ...existingProducts]
+    localStorage.setItem("savedProducts", JSON.stringify(updatedProducts))
+
+    alert("Product saved successfully!")
   }
 
   const getRiskColor = (risk: string) => {
@@ -148,15 +195,29 @@ export default function AnalyzePage() {
     return "Very Poor - Significant health risks, avoid if possible"
   }
 
+  const getConcernColor = (percentage?: number) => {
+    if (!percentage) return "text-gray-600"
+    if (percentage > 100) return "text-red-600"
+    if (percentage > 75) return "text-orange-600"
+    if (percentage > 50) return "text-yellow-600"
+    return "text-green-600"
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="mx-auto max-w-5xl space-y-6">
-        {/* Header with Back Button */}
-        <div className="flex items-center gap-4">
+        {/* Header with Navigation */}
+        <div className="flex items-center justify-between">
           <Link href="/">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Home
+            </Button>
+          </Link>
+          <Link href="/tracking">
+            <Button variant="outline" size="sm">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              View Tracking Dashboard
             </Button>
           </Link>
         </div>
@@ -205,96 +266,157 @@ export default function AnalyzePage() {
         {/* Results Section */}
         {results.length > 0 && (
           <div className="space-y-6">
-            {/* Product Type & Summary */}
-            {(productType || summary) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Info className="h-5 w-5" />
-                    Analysis Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {productType && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1">Product Type:</h4>
-                      <p className="text-gray-700">{productType}</p>
-                    </div>
-                  )}
-                  {summary && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-1">Overall Assessment:</h4>
-                      <p className="text-gray-700">{summary}</p>
-                    </div>
-                  )}
+            {/* Save Product Button */}
+            <div className="flex justify-end">
+              <Button onClick={saveProduct} variant="outline">
+                <Save className="h-4 w-4 mr-2" />
+                Save Product for Tracking
+              </Button>
+            </div>
 
-                  {/* Artificial Colors Section */}
-                  {artificialColors && artificialColors.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <Palette className="h-4 w-4 text-red-500" />
-                        Artificial Colors:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {artificialColors.map((color, index) => (
-                          <Badge key={index} variant="outline" className="text-xs bg-red-50">
-                            {color}
-                          </Badge>
-                        ))}
+            {/* Product Info & Nutritional Concerns */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Product Summary */}
+              {(productType || summary) && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Info className="h-5 w-5" />
+                      Product Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {productType && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Product Type:</h4>
+                        <p className="text-gray-700">{productType}</p>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    {servingSize && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Serving Size:</h4>
+                        <p className="text-gray-700">{servingSize}</p>
+                      </div>
+                    )}
+                    {estimatedCalories && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Estimated Calories:</h4>
+                        <p className="text-gray-700">{estimatedCalories} per serving</p>
+                      </div>
+                    )}
+                    {summary && (
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-1">Overall Assessment:</h4>
+                        <p className="text-gray-700">{summary}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-                  {/* Artificial Flavors Section */}
-                  {artificialFlavors && artificialFlavors.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <Droplets className="h-4 w-4 text-purple-500" />
-                        Artificial Flavors:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {artificialFlavors.map((flavor, index) => (
-                          <Badge key={index} variant="outline" className="text-xs bg-purple-50">
-                            {flavor}
-                          </Badge>
-                        ))}
-                      </div>
+              {/* Nutritional Concerns */}
+              {nutritionalConcerns.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-500" />
+                      Daily Intake Impact
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {nutritionalConcerns.map((concern, index) => (
+                        <div key={index} className="border-l-4 border-orange-200 pl-4">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-medium text-gray-900">{concern.nutrient}</h4>
+                            {concern.dailyValuePercentage && (
+                              <span className={`text-sm font-medium ${getConcernColor(concern.dailyValuePercentage)}`}>
+                                {concern.dailyValuePercentage}% DV
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">{concern.amount}</p>
+                          <p className="text-sm text-orange-700">{concern.concern}</p>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
 
-                  {/* Preservatives Section */}
-                  {preservatives && preservatives.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <FlaskConical className="h-4 w-4 text-amber-500" />
-                        Preservatives:
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {preservatives.map((preservative, index) => (
-                          <Badge key={index} variant="outline" className="text-xs bg-amber-50">
-                            {preservative}
-                          </Badge>
-                        ))}
-                      </div>
+            {/* Additives Breakdown */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Chemical & Additive Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Artificial Colors Section */}
+                {artificialColors && artificialColors.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-red-500" />
+                      Artificial Colors:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {artificialColors.map((color, index) => (
+                        <Badge key={index} variant="outline" className="text-xs bg-red-50">
+                          {color}
+                        </Badge>
+                      ))}
                     </div>
-                  )}
+                  </div>
+                )}
 
-                  {/* Common Additives Section */}
-                  {commonAdditives && commonAdditives.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Other Additives:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {commonAdditives.map((additive, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {additive}
-                          </Badge>
-                        ))}
-                      </div>
+                {/* Artificial Flavors Section */}
+                {artificialFlavors && artificialFlavors.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <Droplets className="h-4 w-4 text-purple-500" />
+                      Artificial Flavors:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {artificialFlavors.map((flavor, index) => (
+                        <Badge key={index} variant="outline" className="text-xs bg-purple-50">
+                          {flavor}
+                        </Badge>
+                      ))}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                  </div>
+                )}
+
+                {/* Preservatives Section */}
+                {preservatives && preservatives.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <FlaskConical className="h-4 w-4 text-amber-500" />
+                      Preservatives:
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {preservatives.map((preservative, index) => (
+                        <Badge key={index} variant="outline" className="text-xs bg-amber-50">
+                          {preservative}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Common Additives Section */}
+                {commonAdditives && commonAdditives.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Other Additives:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {commonAdditives.map((additive, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {additive}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Overall Score */}
             {overallScore !== null && (
@@ -382,6 +504,24 @@ export default function AnalyzePage() {
                           <h4 className="font-medium text-gray-900 mb-1">Analysis:</h4>
                           <p className="text-gray-700 text-sm leading-relaxed">{result.explanation}</p>
                         </div>
+
+                        {/* Estimated Amount & Daily Impact */}
+                        {(result.estimatedAmount || result.dailyIntakeImpact) && (
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {result.estimatedAmount && (
+                              <div>
+                                <h4 className="font-medium text-gray-900 mb-1">Estimated Amount:</h4>
+                                <p className="text-gray-700 text-sm">{result.estimatedAmount}</p>
+                              </div>
+                            )}
+                            {result.dailyIntakeImpact && (
+                              <div>
+                                <h4 className="font-medium text-gray-900 mb-1">Daily Intake Impact:</h4>
+                                <p className="text-gray-700 text-sm">{result.dailyIntakeImpact}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Specific Additives */}
                         {result.specificAdditives && result.specificAdditives.length > 0 && (
